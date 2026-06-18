@@ -5,11 +5,19 @@ const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  let user = null;
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  try {
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error(
+        "Thiếu NEXT_PUBLIC_SUPABASE_URL hoặc NEXT_PUBLIC_SUPABASE_ANON_KEY trong biến môi trường."
+      );
+    }
+
+    const supabase = createServerClient(supabaseUrl, supabaseKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -24,17 +32,12 @@ export async function updateSession(request: NextRequest) {
           );
         },
       },
-    }
-  );
+    });
 
-  let user = null;
-  try {
     const { data } = await supabase.auth.getUser();
     user = data.user;
-  } catch {
-    // Supabase chưa được cấu hình đúng (sai URL/key, hoặc mất kết nối).
-    // Không chặn toàn bộ site — cứ coi như chưa đăng nhập, các trang riêng
-    // tư sẽ tự chuyển hướng về /login.
+  } catch (err) {
+    console.error("[proxy] Supabase auth check failed:", err);
   }
 
   const path = request.nextUrl.pathname;
